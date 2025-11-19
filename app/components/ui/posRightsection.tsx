@@ -2,32 +2,48 @@
 import React, { useEffect, useState } from "react";
 import { useSiteInformationPersist, useUserInformation } from "@/app/store/authstore";
 import { mpesaTransactions } from "@/app/hooks/usetransactions";
-
+interface MpesaTransaction {
+  id?: string | number;
+  mpesaRef?: string;
+  reference?: string;
+  amount?: string | number;
+  phone?: string;
+  date?: string;
+  // add other fields you expect
+  [key: string]: any; // fallback if you're not sure yet
+}
 function PosRightsection() {
   const { siteInfo } = useSiteInformationPersist();
   const { userInfo } = useUserInformation();
   const [mpesaPayment, setmpesaPayment] = useState(false);
-  const [transactions, setTransactions] = useState([]);
+  const [transactions, setTransactions] = useState<MpesaTransaction[]>([]);
 
   // Parse user info safely
   const parsedUser =
     typeof userInfo === "string" ? JSON.parse(userInfo) : userInfo;
 
-  useEffect(() => {
-    const fetchMpesaTransactions = async () => {
-      try {
-        if (!siteInfo?.[0]?.company_prefix || !parsedUser?.id) return;
-        const response = await mpesaTransactions(
-          siteInfo[0].company_prefix,
-          parsedUser.id
-        );
-        setTransactions(response);
-      } catch (e) {
-        console.error("Error fetching mpesa transactions:", e);
-      }
-    };
-    fetchMpesaTransactions();
-  }, [siteInfo, parsedUser]);
+useEffect(() => {
+  const fetchMpesaTransactions = async () => {
+    try {
+      if (!siteInfo?.[0]?.company_prefix || !parsedUser?.id) return;
+
+      const response = await mpesaTransactions(
+        siteInfo[0].company_prefix,
+        parsedUser.id
+      );
+
+      // THIS IS THE KEY FIX:
+      setTransactions(response?.data ?? []); // extract .data and fallback to empty array
+      // or if your hook already returns response.data:
+      // setTransactions(response ?? []);
+    } catch (e) {
+      console.error("Error fetching mpesa transactions:", e);
+      setTransactions([]); // optional: reset on error
+    }
+  };
+
+  fetchMpesaTransactions();
+}, [siteInfo, parsedUser]);
 
   if (!parsedUser)
     return <div className="text-red-500">⚠️ No user info found.</div>;
